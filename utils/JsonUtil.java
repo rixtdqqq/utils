@@ -1,5 +1,6 @@
 package com.zhuyx.mytraining.util;
 
+import android.annotation.SuppressLint;
 import android.util.Log;
 
 import org.json.JSONArray;
@@ -275,32 +276,37 @@ public class JsonUtil {
      */
     public static Map<String, String> beanToMap(Object obj) {
         Class<?> cls = obj.getClass();
-        Map<String, String> valueMap = new HashMap<String, String>();
-        // 取出bean里的所有方法
-        Method[] methods = cls.getDeclaredMethods();
-        Field[] fields = cls.getDeclaredFields();
-        for (Field field : fields) {
-            try {
-                String fieldType = field.getType().getSimpleName();
-                String fieldGetName = parseMethodName(field.getName(), "get");
-                if (!haveMethod(methods, fieldGetName)) {
+        Map<String, String> valueMap = new HashMap<>();
+        if (isMethodRule(cls)) { //使用方法规则
+            // 取出bean里的所有方法
+            Method[] methods = cls.getDeclaredMethods();
+            Field[] fields = cls.getDeclaredFields();
+            for (Field field : fields) {
+                try {
+                    String fieldType = field.getType().getSimpleName();
+                    String fieldGetName = parseMethodName(field.getName(), "get");
+                    if (!haveMethod(methods, fieldGetName)) {
+                        continue;
+                    }
+                    Method fieldGetMet = cls.getMethod(fieldGetName, new Class[]{});
+                    Object fieldVal = fieldGetMet.invoke(obj, new Object[]{});
+                    valueMap.put(field.getName(), getStringValue(fieldType, fieldVal));
+                } catch (Exception e) {
                     continue;
                 }
-                Method fieldGetMet = cls.getMethod(fieldGetName, new Class[]{});
-                Object fieldVal = fieldGetMet.invoke(obj, new Object[]{});
-                String result = null;
-                if ("Date".equals(fieldType)) {
-                    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.CHINA);
-                    result = sdf.format((Date) fieldVal);
-
-                } else {
-                    if (null != fieldVal) {
-                        result = String.valueOf(fieldVal);
+            }
+        } else { //使用字段规则
+            for (Field field : cls.getFields()) {
+                try {
+                    Class<?> clazz = field.getType();
+                    String name = field.getName();
+                    if (isStartWithUpper(name)) {
+                        continue;
                     }
+                    valueMap.put(name, getStringValue(clazz.getSimpleName(), field.get(obj)));
+                } catch (Exception e) {
+                    continue;
                 }
-                valueMap.put(field.getName(), result);
-            } catch (Exception e) {
-                continue;
             }
         }
         return valueMap;
@@ -315,7 +321,7 @@ public class JsonUtil {
      * @param fieldType      字段类型
      * @param value
      */
-    public static void setFiedlValue(Object obj, Method fieldSetMethod, String fieldType, Object value) {
+    public static void setFieldlValue(Object obj, Method fieldSetMethod, String fieldType, Object value) {
 
         try {
             if (null != value && !"".equals(value)) {
@@ -345,7 +351,6 @@ public class JsonUtil {
             }
 
         } catch (Exception e) {
-//            Log.e(TAG, TAG  + ">>>>>>>>>>set value error.",e);
             e.printStackTrace();
         }
 
@@ -403,13 +408,36 @@ public class JsonUtil {
             return null;
         }
 
-        JSONObject jo = null;
-        jo = new JSONObject(jsonStr);
+        JSONObject jo = new JSONObject(jsonStr);
         if (isNull(jo)) {
             return null;
         }
 
         return parseObject(jo, clazz);
+    }
+
+    /**
+     * 反序列化简单对象
+     *
+     * @param jsonStr json字符串
+     * @param object
+     * @return 反序列化后的实例
+     * @throws JSONException
+     */
+    public static <T> T parseObject(String jsonStr, T object) throws JSONException {
+        if (null == object || null == jsonStr || 0 == jsonStr.length()) {
+            return null;
+        }
+        JSONObject jo = new JSONObject(jsonStr);
+        if (isNull(jo)) {
+            return null;
+        }
+        return parseObject(jo, object);
+    }
+
+    public static <T> T parseObject(JSONObject jo, T object) {
+        //TODO
+        return null;
     }
 
     /**
@@ -618,7 +646,7 @@ public class JsonUtil {
                 JSONArray ja = jo.optJSONArray(name);
                 if (!isNull(ja)) {
                     Object array = parseArray(ja, c);
-                    setFiedlValue(obj, fieldSetMethod, clazz.getSimpleName(), array);
+                    setFieldlValue(obj, fieldSetMethod, clazz.getSimpleName(), array);
                 }
             } else if (isCollection(clazz)) { // 泛型集合
                 // 获取定义的泛型类型
@@ -636,18 +664,18 @@ public class JsonUtil {
                 JSONArray ja = jo.optJSONArray(name);
                 if (!isNull(ja)) {
                     Object o = parseCollection(ja, clazz, c);
-                    setFiedlValue(obj, fieldSetMethod, clazz.getSimpleName(), o);
+                    setFieldlValue(obj, fieldSetMethod, clazz.getSimpleName(), o);
                 }
             } else if (isSingle(clazz)) { // 值类型
                 Object o = jo.opt(name);
                 if (o != null) {
-                    setFiedlValue(obj, fieldSetMethod, clazz.getSimpleName(), o);
+                    setFieldlValue(obj, fieldSetMethod, clazz.getSimpleName(), o);
                 }
             } else if (isObject(clazz)) { // 对象
                 JSONObject j = jo.optJSONObject(name);
                 if (!isNull(j)) {
                     Object o = parseObject(j, clazz);
-                    setFiedlValue(obj, fieldSetMethod, clazz.getSimpleName(), o);
+                    setFieldlValue(obj, fieldSetMethod, clazz.getSimpleName(), o);
                 }
             } else if (isList(clazz)) { // 列表
 //              JSONObject j = jo.optJSONObject(name);
@@ -700,8 +728,32 @@ public class JsonUtil {
                 }
             } else if (isSingle(clazz)) { // 值类型
                 Object o = jo.opt(name);
-                if (o != null) {
-                    field.set(obj, o);
+                if (!isNull(o)) {
+                    String fieldType = clazz.getSimpleName();
+                    if ("String".equals(fieldType)) {
+                        field.set(obj, o);
+                    } else if ("Date".equals(fieldType)) {
+                        SimpleDateFormat sdf = new SimpleDateFormat("YYYY-MM-DD HH:mm:ss", Locale.CHINA);
+                        Date temp = sdf.parse(o.toString());
+                        field.set(obj, temp);
+                    } else if ("Long".equalsIgnoreCase(fieldType) || "long".equalsIgnoreCase(fieldType)) {
+                        Long temp = Long.parseLong(o.toString());
+                        field.set(obj, temp);
+                    } else if ("Float".equalsIgnoreCase(fieldType) || "float".equalsIgnoreCase(fieldType)) {
+                        Float temp = Float.parseFloat(o.toString());
+                        field.set(obj, temp);
+                    } else if ("Double".equalsIgnoreCase(fieldType) || "double".equalsIgnoreCase(fieldType)) {
+                        Double temp = Double.parseDouble(o.toString());
+                        field.set(obj, temp);
+                    } else if ("Boolean".equalsIgnoreCase(fieldType) || "boolean".equalsIgnoreCase(fieldType)) {
+                        Boolean temp = Boolean.parseBoolean(o.toString());
+                        field.set(obj, temp);
+                    } else if ("Integer".equalsIgnoreCase(fieldType) || "int".equalsIgnoreCase(fieldType)) {
+                        Integer temp = Integer.parseInt(o.toString());
+                        field.set(obj, temp);
+                    } else {
+                        field.set(obj, o);
+                    }
                 }
             } else if (isObject(clazz)) { // 对象
                 JSONObject j = jo.optJSONObject(name);
@@ -723,6 +775,46 @@ public class JsonUtil {
         }
     }
 
+    public static boolean isMethodRule(Class<?> clazz) {
+        Entity joAnot = clazz.getAnnotation(Entity.class);
+        if (null != joAnot && joAnot.method()) {
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * 从字段获取字符串
+     *
+     * @param fieldType
+     * @param fieldVal
+     * @return
+     */
+    @SuppressLint("SimpleDateFormat")
+    public static String getStringValue(String fieldType, Object fieldVal) {
+        String result = null;
+        if ("Date".equals(fieldType)) {
+            SimpleDateFormat sdf = new SimpleDateFormat("YYYY-MM-DD HH:mm:ss", Locale.CHINA);
+            result = sdf.format(fieldVal);
+        } else {
+            if (null != fieldVal) {
+                result = String.valueOf(fieldVal);
+            }
+        }
+        return result;
+    }
+
+    public static boolean isStartWithUpper(String value) {
+        if (null == value) {
+            return false;
+        }
+        char code = value.charAt(0);
+        if (code >= 'A' && code <= 'Z') {//首字母大写不做处理
+            return true;
+        }
+        return false;
+    }
+
     /**
      * 判断对象是否为空
      *
@@ -730,10 +822,10 @@ public class JsonUtil {
      * @return
      */
     private static boolean isNull(Object obj) {
-        if (obj instanceof JSONObject) {
-            return JSONObject.NULL.equals(obj);
+        if (null == obj || "".equals(obj) || JSONObject.NULL.equals(obj)) {
+            return true;
         }
-        return obj == null;
+        return false;
     }
 
     /**
