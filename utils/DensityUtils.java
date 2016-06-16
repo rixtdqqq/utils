@@ -18,22 +18,22 @@ public class DensityUtils {
         throw new UnsupportedOperationException("cannot be instantiated");
     }
 
-    public static int dp2px(Context context, float dpVal) {
+    public static int dp2px(Context context, int dpVal) {
         return (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP,
                 dpVal, context.getResources().getDisplayMetrics());
     }
 
-    public static int sp2px(Context context, float spVal) {
+    public static int sp2px(Context context, int spVal) {
         return (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP,
                 spVal, context.getResources().getDisplayMetrics());
     }
 
-    public static float px2dp(Context context, float pxVal) {
-        return 0.5f + pxVal / context.getResources().getDisplayMetrics().density;
+    public static int px2dp(Context context, int pxVal) {
+        return (int)(0.5f + pxVal / context.getResources().getDisplayMetrics().density);
     }
 
-    public static float px2sp(Context context, float pxVal) {
-        return 0.5f + pxVal / context.getResources().getDisplayMetrics().scaledDensity;
+    public static int px2sp(Context context, int pxVal) {
+        return (int)(0.5f + pxVal / context.getResources().getDisplayMetrics().scaledDensity);
     }
 
     public static String formatFileSize(long size) {
