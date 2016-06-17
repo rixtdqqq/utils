@@ -151,7 +151,7 @@ public class JsonUtil {
     private static void serializeObject(JSONStringer js, Object obj) {
         try {
             js.object();
-            Class<? extends Object> objClazz = obj.getClass();
+            Class<?> objClazz = obj.getClass();
             Method[] methods = objClazz.getDeclaredMethods();
             if (isMethodRule(objClazz)) {
 
@@ -182,14 +182,14 @@ public class JsonUtil {
                     }
                 }
             } else {//使用字段规则
-                for (Field field:objClazz.getFields()){
+                for (Field field : objClazz.getFields()) {
                     String name = field.getName();
-                    if (isStartWithUpper(name)){
+                    if (isStartWithUpper(name)) {
                         continue;
                     }
                     Object o = field.get(obj);
                     js.key(name);
-                    serialize(js,o);
+                    serialize(js, o);
                 }
             }
             js.endObject();
@@ -332,7 +332,7 @@ public class JsonUtil {
      * @param obj            类实例
      * @param fieldSetMethod 字段方法
      * @param fieldType      字段类型
-     * @param value
+     * @param value          值
      */
     public static void setFieldlValue(Object obj, Method fieldSetMethod, String fieldType, Object value) {
 
@@ -377,20 +377,15 @@ public class JsonUtil {
      * @return 反序列化后的实例
      * @throws JSONException
      */
-    public static <T> T parseObject(JSONObject jo, Class<T> clazz) {
+    public static <T> T parseObject(JSONObject jo, Class<T> clazz) throws JSONException {
         if (clazz == null || isNull(jo)) {
             return null;
         }
-        try {
-            T obj = newInstance(clazz);
-            if (obj == null) {
-                return null;
-            }
-            return parseObject(jo, obj);
-        } catch (JSONException e) {
-            e.printStackTrace();
+        T obj = newInstance(clazz);
+        if (obj == null) {
             return null;
         }
+        return parseObject(jo, obj);
 
     }
 
@@ -419,7 +414,7 @@ public class JsonUtil {
      * 反序列化简单对象
      *
      * @param jsonStr json字符串
-     * @param object
+     * @param object  对象
      * @return 反序列化后的实例
      * @throws JSONException
      */
@@ -529,7 +524,7 @@ public class JsonUtil {
      * @param ja              json数组
      * @param collectionClazz 集合类型
      * @param genericType     实体类类型
-     * @return
+     * @return 集合对象
      * @throws JSONException
      */
     @SuppressWarnings("unchecked")
@@ -610,7 +605,7 @@ public class JsonUtil {
     private static <T> T newInstance(Class<T> clazz) throws JSONException {
         if (clazz == null)
             return null;
-        T obj = null;
+        T obj;
         if (clazz.isInterface()) {
             if (clazz.equals(Map.class)) {
                 obj = (T) new HashMap();
@@ -807,18 +802,15 @@ public class JsonUtil {
 
     public static boolean isMethodRule(Class<?> clazz) {
         Entity joAnnotation = clazz.getAnnotation(Entity.class);
-        if (null != joAnnotation && joAnnotation.method()) {
-            return true;
-        }
-        return false;
+        return null != joAnnotation && joAnnotation.method();
     }
 
     /**
      * 从字段获取字符串
      *
-     * @param fieldType
-     * @param fieldVal
-     * @return
+     * @param fieldType 类型
+     * @param fieldVal  值
+     * @return string
      */
     @SuppressLint("SimpleDateFormat")
     public static String getStringValue(String fieldType, Object fieldVal) {
@@ -839,17 +831,14 @@ public class JsonUtil {
             return false;
         }
         char code = value.charAt(0);
-        if (code >= 'A' && code <= 'Z') {//首字母大写不做处理
-            return true;
-        }
-        return false;
+        return code >= 'A' && code <= 'Z';//首字母大写不做处理
+
     }
 
     /**
      * 判断对象是否为空
      *
      * @param obj 实例
-     * @return
      */
     private static boolean isNull(Object obj) {
         return null == obj || "".equals(obj) || JSONObject.NULL.equals(obj);
@@ -858,8 +847,8 @@ public class JsonUtil {
     /**
      * 判断是否是值类型
      *
-     * @param clazz
-     * @return
+     * @param clazz 对象
+     * @return 判断是否是值类型
      */
     private static boolean isSingle(Class<?> clazz) {
         return isBoolean(clazz) || isNumber(clazz) || isString(clazz);
@@ -868,8 +857,8 @@ public class JsonUtil {
     /**
      * 是否布尔值
      *
-     * @param clazz
-     * @return
+     * @param clazz 对象
+     * @return 是否布尔值
      */
     public static boolean isBoolean(Class<?> clazz) {
         return (clazz != null)
@@ -880,8 +869,8 @@ public class JsonUtil {
     /**
      * 是否数值
      *
-     * @param clazz
-     * @return
+     * @param clazz 对象
+     * @return 是否是数值
      */
     public static boolean isNumber(Class<?> clazz) {
         return (clazz != null)
@@ -896,8 +885,8 @@ public class JsonUtil {
     /**
      * 判断是否是字符串
      *
-     * @param clazz
-     * @return
+     * @param clazz 对象
+     * @return 判断是否是字符串
      */
     public static boolean isString(Class<?> clazz) {
         return (clazz != null)
@@ -909,8 +898,8 @@ public class JsonUtil {
     /**
      * 判断是否是对象
      *
-     * @param clazz
-     * @return
+     * @param clazz 对象
+     * @return 判断是否是对象
      */
     private static boolean isObject(Class<?> clazz) {
         return clazz != null && !isSingle(clazz) && !isArray(clazz) && !isCollection(clazz) && !isMap(clazz);
@@ -919,8 +908,8 @@ public class JsonUtil {
     /**
      * 判断是否是数组
      *
-     * @param clazz
-     * @return
+     * @param clazz 对象
+     * @return 判断是否是数组
      */
     public static boolean isArray(Class<?> clazz) {
         return clazz != null && clazz.isArray();
@@ -929,8 +918,8 @@ public class JsonUtil {
     /**
      * 判断是否是集合
      *
-     * @param clazz
-     * @return
+     * @param clazz 对象
+     * @return 判断是否是集合
      */
     public static boolean isCollection(Class<?> clazz) {
         return clazz != null && Collection.class.isAssignableFrom(clazz);
@@ -939,18 +928,16 @@ public class JsonUtil {
     /**
      * 判断是否是Map
      *
-     * @param clazz
-     * @return
+     * @param clazz 对象
+     * @return 判断是否是Map
      */
     public static boolean isMap(Class<?> clazz) {
         return clazz != null && Map.class.isAssignableFrom(clazz);
     }
 
     /**
-     * 判断是否是列表
-     *
-     * @param clazz
-     * @return
+     * @param clazz 对象
+     * @return 判断是否是列表
      */
     public static boolean isList(Class<?> clazz) {
         return clazz != null && List.class.isAssignableFrom(clazz);
