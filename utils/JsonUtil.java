@@ -153,30 +153,43 @@ public class JsonUtil {
             js.object();
             Class<? extends Object> objClazz = obj.getClass();
             Method[] methods = objClazz.getDeclaredMethods();
-            Field[] fields = objClazz.getDeclaredFields();
-            for (Field field : fields) {
-                try {
-                    String fieldType = field.getType().getSimpleName();
-                    String fieldGetName = parseMethodName(field.getName(), "get");
-                    if (!haveMethod(methods, fieldGetName)) {
+            if (isMethodRule(objClazz)) {
+
+                Field[] fields = objClazz.getDeclaredFields();
+                for (Field field : fields) {
+                    try {
+                        String fieldType = field.getType().getSimpleName();
+                        String fieldGetName = parseMethodName(field.getName(), "get");
+                        if (!haveMethod(methods, fieldGetName)) {
+                            continue;
+                        }
+                        Method fieldGetMet = objClazz.getMethod(fieldGetName, new Class[]{});
+                        Object fieldVal = fieldGetMet.invoke(obj, new Object[]{});
+                        String result = null;
+                        if ("Date".equals(fieldType)) {
+                            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US);
+                            result = sdf.format((Date) fieldVal);
+
+                        } else {
+                            if (null != fieldVal) {
+                                result = String.valueOf(fieldVal);
+                            }
+                        }
+                        js.key(field.getName());
+                        serialize(js, result);
+                    } catch (Exception e) {
                         continue;
                     }
-                    Method fieldGetMet = objClazz.getMethod(fieldGetName, new Class[]{});
-                    Object fieldVal = fieldGetMet.invoke(obj, new Object[]{});
-                    String result = null;
-                    if ("Date".equals(fieldType)) {
-                        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US);
-                        result = sdf.format((Date) fieldVal);
-
-                    } else {
-                        if (null != fieldVal) {
-                            result = String.valueOf(fieldVal);
-                        }
+                }
+            } else {//使用字段规则
+                for (Field field:objClazz.getFields()){
+                    String name = field.getName();
+                    if (isStartWithUpper(name)){
+                        continue;
                     }
-                    js.key(field.getName());
-                    serialize(js, result);
-                } catch (Exception e) {
-                    continue;
+                    Object o = field.get(obj);
+                    js.key(name);
+                    serialize(js,o);
                 }
             }
             js.endObject();
@@ -236,7 +249,7 @@ public class JsonUtil {
                 Method fieldMethod = cls.getMethod(setMetodName, field
                         .getType());
                 String value = valMap.get(field.getName());
-                if (null != value && !"".equals(value)) {
+                if (null != value && !"".equals(value) || !"null".equals(value)) {
                     String fieldType = field.getType().getSimpleName();
                     if ("String".equals(fieldType)) {
                         fieldMethod.invoke(obj, value);
@@ -364,35 +377,21 @@ public class JsonUtil {
      * @return 反序列化后的实例
      * @throws JSONException
      */
-    public static <T> T parseObject(JSONObject jo, Class<T> clazz) throws JSONException {
+    public static <T> T parseObject(JSONObject jo, Class<T> clazz) {
         if (clazz == null || isNull(jo)) {
             return null;
         }
-
-        T obj = newInstance(clazz);
-        if (obj == null) {
+        try {
+            T obj = newInstance(clazz);
+            if (obj == null) {
+                return null;
+            }
+            return parseObject(jo, obj);
+        } catch (JSONException e) {
+            e.printStackTrace();
             return null;
         }
-        if (isMap(clazz)) {
-            setField(obj, jo);
-        } else {
-            // 取出bean里的所有方法
-            Method[] methods = clazz.getDeclaredMethods();
-            Field[] fields = clazz.getDeclaredFields();
-            for (Field f : fields) {
-                String setMetodName = parseMethodName(f.getName(), "set");
-                if (!haveMethod(methods, setMetodName)) {
-                    continue;
-                }
-                try {
-                    Method fieldMethod = clazz.getMethod(setMetodName, f.getType());
-                    setField(obj, fieldMethod, f, jo);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
-        }
-        return obj;
+
     }
 
     /**
@@ -436,8 +435,36 @@ public class JsonUtil {
     }
 
     public static <T> T parseObject(JSONObject jo, T object) {
-        //TODO
-        return null;
+        if (null == object || isNull(jo)) {
+            return null;
+        }
+        Class<?> clazz = object.getClass();
+        if (isMap(clazz)) {
+            setField(object, jo);
+        } else {
+            if (isMethodRule(clazz)) {//使用方法规则
+                // 取出bean里的所有方法
+                Method[] methods = clazz.getDeclaredMethods();
+                Field[] fields = clazz.getDeclaredFields();
+                for (Field f : fields) {
+                    String setMethodName = parseMethodName(f.getName(), "set");
+                    if (!haveMethod(methods, setMethodName)) {
+                        continue;
+                    }
+                    try {
+                        Method fieldMethod = clazz.getMethod(setMethodName, f.getType());
+                        setField(object, fieldMethod, f, jo);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+            } else { //使用字段规则
+                for (Field field : clazz.getFields()) {
+                    setField(object, field, jo);
+                }
+            }
+        }
+        return object;
     }
 
     /**
@@ -702,6 +729,9 @@ public class JsonUtil {
         String name = field.getName();
         Class<?> clazz = field.getType();
         try {
+            if (isStartWithUpper(name)) {
+                return;
+            }
             if (isArray(clazz)) { // 数组
                 Class<?> c = clazz.getComponentType();
                 JSONArray ja = jo.optJSONArray(name);
@@ -731,9 +761,9 @@ public class JsonUtil {
                 if (!isNull(o)) {
                     String fieldType = clazz.getSimpleName();
                     if ("String".equals(fieldType)) {
-                        field.set(obj, o);
+                        field.set(obj, o.toString());
                     } else if ("Date".equals(fieldType)) {
-                        SimpleDateFormat sdf = new SimpleDateFormat("YYYY-MM-DD HH:mm:ss", Locale.CHINA);
+                        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.CHINA);
                         Date temp = sdf.parse(o.toString());
                         field.set(obj, temp);
                     } else if ("Long".equalsIgnoreCase(fieldType) || "long".equalsIgnoreCase(fieldType)) {
@@ -752,7 +782,7 @@ public class JsonUtil {
                         Integer temp = Integer.parseInt(o.toString());
                         field.set(obj, temp);
                     } else {
-                        field.set(obj, o);
+                        field.set(obj, o.toString());
                     }
                 }
             } else if (isObject(clazz)) { // 对象
@@ -776,8 +806,8 @@ public class JsonUtil {
     }
 
     public static boolean isMethodRule(Class<?> clazz) {
-        Entity joAnot = clazz.getAnnotation(Entity.class);
-        if (null != joAnot && joAnot.method()) {
+        Entity joAnnotation = clazz.getAnnotation(Entity.class);
+        if (null != joAnnotation && joAnnotation.method()) {
             return true;
         }
         return false;
@@ -794,7 +824,7 @@ public class JsonUtil {
     public static String getStringValue(String fieldType, Object fieldVal) {
         String result = null;
         if ("Date".equals(fieldType)) {
-            SimpleDateFormat sdf = new SimpleDateFormat("YYYY-MM-DD HH:mm:ss", Locale.CHINA);
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.CHINA);
             result = sdf.format(fieldVal);
         } else {
             if (null != fieldVal) {
@@ -822,10 +852,7 @@ public class JsonUtil {
      * @return
      */
     private static boolean isNull(Object obj) {
-        if (null == obj || "".equals(obj) || JSONObject.NULL.equals(obj)) {
-            return true;
-        }
-        return false;
+        return null == obj || "".equals(obj) || JSONObject.NULL.equals(obj);
     }
 
     /**
