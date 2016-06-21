@@ -242,11 +242,11 @@ public class JsonUtil {
 
         for (Field field : fields) {
             try {
-                String setMetodName = parseMethodName(field.getName(), "set");
-                if (!haveMethod(methods, setMetodName)) {
+                String setMethodName = parseMethodName(field.getName(), "set");
+                if (!haveMethod(methods, setMethodName)) {
                     continue;
                 }
-                Method fieldMethod = cls.getMethod(setMetodName, field
+                Method fieldMethod = cls.getMethod(setMethodName, field
                         .getType());
                 String value = valMap.get(field.getName());
                 if (null != value && !"".equals(value) || !"null".equals(value)) {
@@ -257,18 +257,20 @@ public class JsonUtil {
                         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US);
                         Date temp = sdf.parse(value);
                         fieldMethod.invoke(obj, temp);
-                    } else if ("Integer".equals(fieldType)
-                            || "int".equals(fieldType)) {
-                        Integer intval = Integer.parseInt(value);
-                        fieldMethod.invoke(obj, intval);
-                    } else if ("Long".equalsIgnoreCase(fieldType)) {
+                    } else if ("Integer".equals(fieldType) || "int".equals(fieldType)) {
+                        Integer intVal = Integer.parseInt(value);
+                        fieldMethod.invoke(obj, intVal);
+                    } else if ("Long".equalsIgnoreCase(fieldType) || "long".equalsIgnoreCase(fieldType)) {
                         Long temp = Long.parseLong(value);
                         fieldMethod.invoke(obj, temp);
-                    } else if ("Double".equalsIgnoreCase(fieldType)) {
+                    } else if ("Double".equalsIgnoreCase(fieldType) || "double".equalsIgnoreCase(fieldType)) {
                         Double temp = Double.parseDouble(value);
                         fieldMethod.invoke(obj, temp);
-                    } else if ("Boolean".equalsIgnoreCase(fieldType)) {
+                    } else if ("Boolean".equalsIgnoreCase(fieldType) || "boolean".equalsIgnoreCase(fieldType)) {
                         Boolean temp = Boolean.parseBoolean(value);
+                        fieldMethod.invoke(obj, temp);
+                    } else if ("Float".equalsIgnoreCase(fieldType) || "float".equalsIgnoreCase(fieldType)) {
+                        Float temp = Float.parseFloat(value);
                         fieldMethod.invoke(obj, temp);
                     } else {
                         System.out.println("setFieldValue not supper type:" + fieldType);
@@ -344,18 +346,20 @@ public class JsonUtil {
                     SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.CHINA);
                     Date temp = sdf.parse(value.toString());
                     fieldSetMethod.invoke(obj, temp);
-                } else if ("Integer".equals(fieldType)
-                        || "int".equals(fieldType)) {
-                    Integer intval = Integer.parseInt(value.toString());
-                    fieldSetMethod.invoke(obj, intval);
-                } else if ("Long".equalsIgnoreCase(fieldType)) {
+                } else if ("Integer".equals(fieldType) || "int".equals(fieldType)) {
+                    Integer intVal = Integer.parseInt(value.toString());
+                    fieldSetMethod.invoke(obj, intVal);
+                } else if ("Long".equalsIgnoreCase(fieldType) || "long".equalsIgnoreCase(fieldType)) {
                     Long temp = Long.parseLong(value.toString());
                     fieldSetMethod.invoke(obj, temp);
-                } else if ("Double".equalsIgnoreCase(fieldType)) {
+                } else if ("Double".equalsIgnoreCase(fieldType) || "double".equalsIgnoreCase(fieldType)) {
                     Double temp = Double.parseDouble(value.toString());
                     fieldSetMethod.invoke(obj, temp);
-                } else if ("Boolean".equalsIgnoreCase(fieldType)) {
+                } else if ("Boolean".equalsIgnoreCase(fieldType) || "boolean".equalsIgnoreCase(fieldType)) {
                     Boolean temp = Boolean.parseBoolean(value.toString());
+                    fieldSetMethod.invoke(obj, temp);
+                } else if ("Float".equalsIgnoreCase(fieldType) || "float".equalsIgnoreCase(fieldType)) {
+                    Float temp = Float.parseFloat(value.toString());
                     fieldSetMethod.invoke(obj, temp);
                 } else {
                     fieldSetMethod.invoke(obj, value);
